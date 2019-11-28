@@ -1,0 +1,184 @@
+---
+title: "Proyecto Final de R Markdown"
+author: "Fernando Lominchar"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  rmdformats::material:
+    cards: false
+    self_contained: true
+    thumbnails: true
+    lightbox: true
+    gallery: false
+    highlight: tango
+    
+---
+<center> 
+![](Recursos/Logo-EAE.png)
+</center> 
+
+
+# 1.Expresiones Regulares y Recursos de R Markdown.
+
+```{r library, include=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Listado de todos los paquetes utilizados en este trabajo.
+library(ggplot2)
+library(reshape2)
+library(pander)
+library(rvest)
+library(dplyr)
+library(plotly)
+library(knitr)
+library(rmdformats)
+library(tmap)
+library(ggvis)
+library(emojifont)
+```
+
+## 1.1.Comentarios sobre Expresiones Regulares
+
+Tenemos dos páginas sobre expresiones regulares:
+
+* [RIP tutorial](https://riptutorial.com/es/r/topic/5748/expresiones-regulares--expresiones-regulares-)
+* [Stringr](https://stringr.tidyverse.org/articles/regular-expressions.html)
+
+En la primera web **Rip tutorial**, cuenta con unas explicaciones ciertamente claras, en español, útiles para aquellas personas que comienzan a estudiar las expresiones regulares. Es bastante intuitiva, cubre las principales dudas que pueden surgir, posee un apartado donde explica las diferencias existentes en cada idioma y cuenta con un pdf gratuito para poder tener siempre a mano la información.
+
+Respecto a la página de **Stringr**, es mucho mas exhaustiva, enfocada de una manera amplia y no a un simple vistazo. Cuenta con ejemplos concretos, lo que facilita el entendimiento y funcionamiento de las diferentes expresiones regulares. Su único, quizás, defecto podría ser que se encuentra en inglés, aunque si esto no supone un problema para la persona interesado es recomendable comenzar en esta página, ya que su utilidad a la alrga es mucho mayor que la vista en **Rip tutorial**.
+
+<p align="center">
+ Webs | A favor                      |       En contra
+------------ | ---------------------------------| --------------------------------------
+**Rip tutorial** | En castellano y fácil de seguir| Tan solo toca los temas fundamentales y se queda en la superficie de las cosas
+**Stringr** |  Completa y desarrollada       | Se encuentra en inglés
+        
+</p>
+
+
+## 1.2.Recursos para R Markdown
+
+Los documentos realizados en R Markdown resultan una alternativa a para aquellos que necesiten presentar tablas, gráficos o imágenes de forma ciertamente detallista que la disponible en otras modalidades, como es el caso del casi omnipresente Microsoft Word. Para conecer en profundidad las opciones disponibles podemos encontrar dos webs:
+
+1. [R para Ciencia de Datos](https://es.r4ds.hadley.nz/r-markdown.html)
+2. [R Markdown: The Definitive Guide](https://bookdown.org/yihui/rmarkdown/)
+
+La primera de las dos webs presentadas, no pretende ser más que un primer contacto con las opciones disponibles en R Markdown para aquellos que comienzan a trabajar con R. Toca por encima los puntos más básicos, dando apenas unas pinceladas para que el interesado comience a familiarizarse con las opciones disponibles. Su punto fuerte podría ser el encontrarse en castellano, sin embargo la página no se centra solamente en los recursos de R Markdown, por lo que a la larga no es una web para tener de referencia.
+
+La segunda opción, si bien en inglés, resulta de una mayor amplitud en cuanto a los recursos disponibles, siendo en esencia una guía bastante completa acerca del manejo de R Markdown.
+
+R Markdown | A favor                      |       En contra
+------------ | ---------------------------------| --------------------------------------
+**R para Ciencia de Datos** | En castellano, buena estructura y bien documentada| Su objetivo es enseñar a un nivel básico, lo que a la larga se queda corto
+**R Markdown: The Definitive Guide** | Buen desarrollo, estructura fácil de seguir y con utilidad a largo plazo | Se encuentra en inglés
+        
+</p>
+
+# <span style="color:blue"> 2.Usando ggplot para mostrar el crecimiento mundial desde el 1000 d.c.</span>
+
+Se obtiene la información requerida de [esta](https://en.wikipedia.org/wiki/World_population) web. Obtenemos de esa manera los datos por continente del crecimiento mundial en los últimos 1000 años.
+
+<center>
+```{r poblacion, fig.align="center", echo=FALSE, message=FALSE, warning=FALSE, results = 'asis'}
+#Usamos el web scraping para localizar la tabla que queremos trabajar.
+url.poblacion <- "https://en.wikipedia.org/wiki/World_population"
+
+tmp <- read_html(url.poblacion)
+
+tmp <- html_nodes(tmp, "table")
+#sapply(tmp, function(x) dim(html_table(x, fill = TRUE))) Mediante este comando encuentro la tabla que me interesa.
+
+crecim <- html_table(tmp[[11]])
+#Seleccionada la tabla toca limpiarla de datos no necesarios para nuestro trabajo.
+crecim$Notes <- NULL
+ultmilenio <- crecim[12:33,]
+
+#Cambio de nombre por unos más manejables.
+colnames(ultmilenio)[c(1,2,6,7)] <- c("Fecha","Mundo","N.America", "S.America")
+ultmilenio$Mundo <- as.numeric(gsub("[,]| [.]","", ultmilenio$Mundo))
+milcont <- ultmilenio[,-2]
+
+
+#Tabla realizada con un formato diferente al predefinido.
+pandoc.table(ultmilenio, caption = "Crecimiento Mundial, contado en millones", justify = "center")
+```
+</center>
+
+## <span style="color:red"> 2.1.Graficos. </span>
+Ahora procedemos a realizar un sencillo gráfico con los datos obtenidos.
+
+<center>
+```{r continente, fig.align="center", echo=FALSE, message=FALSE, warning=FALSE, results = 'asis'}
+#Trato los datos en formato largo para que sea más fácil de trabajar con ellos.
+trab <- melt(milcont, id.vars = c("Fecha"))
+
+# Se cambian los nombres po unos representativos
+colnames(trab)[c(2,3)] <-c("continente", "habitantes") 
+
+#Asegurarse que los números sean eso mismo y no caracteres. 
+trab$habitantes <- as.numeric(gsub("[,]| [.]","", trab$habitantes))
+trab$Fecha <- as.numeric(gsub("[,]| [.]","", trab$Fecha))
+
+#Dibujamos el ggplot con los datos.
+ggplot(trab, aes(x = Fecha, y = habitantes)) + geom_line() + facet_wrap(~continente) + theme_linedraw()
+
+```
+</center>
+
+Un gráfico un tanto más elegante que el anterior:
+
+<center>
+```{r grafico, fig.align="center", echo=FALSE, message=FALSE, warning=FALSE, results = 'asis'}
+#Realizado el ggplot con temas distintos al predefinido. Algo necesario para los nombres del eje x ya que de otra manera no se podían leer.
+ggplot(trab, aes(x = Fecha, y = habitantes, colour = continente)) + geom_point() + geom_smooth() + 
+  facet_grid(~ continente)+ ggtitle("Vistazo al crecimiento de la humanidad a nivel mundial") + 
+  theme(axis.text.x = element_text( size = 9, angle = 45)) +
+  labs(x = "Fechas de los datos", 
+       y = "Habitantes en mll.",
+       cex=0.65,
+       colour = "Continentes")
+```
+</center>
+
+Podemos observar la comparación entre los contienetes, es destacable el hecho de que la población se ha mantenido con un crecimiento aparentemente constante en casi todos los continentes, exceptuando en Asia, aquí el crecimiento fue mucho más acusado que el resto del mundo. El resto de contienetes comienzan a tener un crecimiento más acelerado a partir del siglo XIX aproximadamente, con excepción de Oceanía la cual se encuentra casi despoblada si es comparada con cualquiera de las otras regiones del mundo.
+
+
+## <span style="color:red"> 2.2.Grafico Interactivo. </span>
+<center>
+```{r interac, fig.align="center", echo=FALSE, message=FALSE, warning=FALSE, results = 'asis'}
+
+#Parecido a los anteriores gráficos, este busca ser interactivo, dando información al usuario cuando pasa el cursor por encima.
+plot_ly(data = ultmilenio, x = ~Fecha, y = ~Mundo, type = "scatter", color = I("red"), mode = "bar") %>%
+  layout(title = 'Crecimiento a nivel mundial', 
+         xaxis = list(title = 'Fechas'),
+         yaxis = list(title = "Millones de personas"))
+
+```
+</center>
+
+# <span style="color:orange"> 3.Mapa. </span>
+
+Puede comprobarse la utilidad del paquete `tmap` para realizar mapas interactivos.
+
+<center>
+```{r mapa, fig.align="center", echo=FALSE, message=FALSE, warning=FALSE, results = 'asis'}
+#Ejemplo de mapa interactivo. Los datos son totalmente cambiables.
+data("World")
+tmap_mode("view")
+tm_shape(World) +
+  tm_polygons("HPI")+
+  tm_layout(bg.color = "skyblue", inner.margins = c(0, .02, .02, .02))
+
+```
+</center>
+
+## <span style="color:green"> Despedida </span>
+
+<center>
+```{r emoji, fig.align="center", echo=FALSE, message=FALSE, warning=FALSE, results = 'asis'}
+#Dibujo de una cara sonriente para despedirse.
+ggplot() + geom_emoji("smile", color='yellow') + theme_void()
+```
+</center>
+
+Muchas gracias por llegar hasta el final del documento, espero que haya resultado de utilidad.
